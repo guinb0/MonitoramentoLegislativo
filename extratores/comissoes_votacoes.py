@@ -74,7 +74,7 @@ def extrair_comissoes_votacoes(ano, tipo_projeto):
     
     Args:
         ano (int): Ano para extração
-        tipo_projeto (str): Tipo de projeto (PL, PDL, etc)
+        tipo_projeto (str): Tipo de projeto (PL, PDL, etc) ou "TODOS"
     
     Returns:
         dict: Dicionário com resultado da extração
@@ -85,50 +85,69 @@ def extrair_comissoes_votacoes(ano, tipo_projeto):
         CABECALHO = ["Comissão", "Parlamentar", "Projeto/Requerimento", "Voto"]
         URL = 'https://splegisws.saopaulo.sp.leg.br/ws/ws2.asmx/ProjetosReunioesDeComissaoJSON'
         
-        parametros = {
-            'ano': str(ano),
-            'tipo': str(tipo_projeto)
-        }
-        
-        diretorio_dados = f"resultados/dados-{tipo_projeto}-{ano}"
-        diretorio_planilhas = f"resultados/planilhas-{tipo_projeto}-{ano}"
-        
-        criar_diretorio(diretorio_dados)
-        criar_diretorio(diretorio_planilhas)
-        
-        dados_ok = False
-        
-        print(f"Consultando API para {tipo_projeto} do ano {ano}...")
-        
-        resposta = requests.get(URL, params=parametros, timeout=60)
-        
-        if resposta.status_code == 200:
-            resposta_obj = json.loads(resposta.content)
-            
-            if len(resposta_obj) == 0:
-                return {
-                    'sucesso': False,
-                    'erro': f'Nenhum dado encontrado para {tipo_projeto} do ano {ano}'
-                }
-            
-            for registro in resposta_obj:
-                infos_projeto = f"{registro['tipo']} {registro['numero']}/{registro['ano']}"
-                if registro.get("encaminhamentos") is not None:
-                    coleta_info_vereador(
-                        info_vereador_encaminhamentos=registro["encaminhamentos"],
-                        cabecalho=CABECALHO,
-                        infos_projeto=infos_projeto,
-                        nome_diretorio=diretorio_dados
-                    )
-                    dados_ok = True
+        # Se for "TODOS", processar todos os tipos
+        if tipo_projeto == "TODOS":
+            tipos_para_extrair = ["PL", "PDL", "PEC", "PRC", "REQ", "IND", "MOC", "SUB"]
+            print(f"Extraindo TODOS os tipos de projeto: {tipos_para_extrair}")
         else:
-            return {
-                'sucesso': False,
-                'erro': f'Requisição não foi OK. Status code: {resposta.status_code}'
-            }
+            tipos_para_extrair = [tipo_projeto]
         
-        if dados_ok:
-            arquivo_excel = gerar_planilha_agregada(diretorio_dados, tipo_projeto, ano, diretorio_planilhas)
+        # Diretórios base
+        diretorio_base_dados = f"resultados/dados-TODOS-{ano}" if tipo_projeto == "TODOS" else f"resultados/dados-{tipo_projeto}-{ano}"
+        diretorio_base_planilhas = f"resultados/planilhas-TODOS-{ano}" if tipo_projeto == "TODOS" else f"resultados/planilhas-{tipo_projeto}-{ano}"
+        
+        criar_diretorio(diretorio_base_dados)
+        criar_diretorio(diretorio_base_planilhas)
+        
+        todos_dados_ok = False
+        tipos_processados = 0
+        
+        # Processar cada tipo de projeto
+        for tipo_atual in tipos_para_extrair:
+            parametros = {
+                'ano': str(ano),
+                'tipo': str(tipo_atual)
+            }
+            
+            dados_ok = False
+            print(f"Consultando API para {tipo_atual} do ano {ano}...")
+            
+            try:
+                resposta = requests.get(URL, params=parametros, timeout=60)
+                
+                if resposta.status_code == 200:
+                    resposta_obj = json.loads(resposta.content)
+                    
+                    if len(resposta_obj) == 0:
+                        print(f"Nenhum dado encontrado para {tipo_atual} do ano {ano}")
+                        continue
+                    
+                    for registro in resposta_obj:
+                        infos_projeto = f"{registro['tipo']} {registro['numero']}/{registro['ano']}"
+                        if registro.get("encaminhamentos") is not None:
+                            coleta_info_vereador(
+                                info_vereador_encaminhamentos=registro["encaminhamentos"],
+                                cabecalho=CABECALHO,
+                                infos_projeto=infos_projeto,
+                                nome_diretorio=diretorio_base_dados
+                            )
+                            dados_ok = True
+                    
+                    if dados_ok:
+                        tipos_processados += 1
+                        todos_dados_ok = True
+                        print(f"✓ {tipo_atual} extraído com sucesso!")
+                else:
+                    print(f"Erro ao consultar {tipo_atual}. Status code: {resposta.status_code}")
+                    
+            except Exception as e:
+                print(f"Erro ao processar {tipo_atual}: {str(e)}")
+                continue
+        
+        # Gerar planilha agregada
+        if todos_dados_ok:
+            nome_final = "TODOS" if tipo_projeto == "TODOS" else tipo_projeto
+            arquivo_excel = gerar_planilha_agregada(diretorio_base_dados, nome_final, ano, diretorio_base_planilhas)
             
             if arquivo_excel is None:
                 return {
@@ -143,16 +162,21 @@ def extrair_comissoes_votacoes(ano, tipo_projeto):
             fim = perf_counter()
             tempo_execucao = fim - inicio
             
-            return {
+            resultado = {
                 'sucesso': True,
                 'arquivo_excel': arquivo_excel,
                 'total_registros': total_registros,
                 'tempo_execucao': tempo_execucao
             }
+            
+            if tipo_projeto == "TODOS":
+                resultado['total_tipos'] = tipos_processados
+            
+            return resultado
         else:
             return {
                 'sucesso': False,
-                'erro': 'Nenhum dado foi extraído'
+                'erro': f'Nenhum dado foi extraído para {tipo_projeto} do ano {ano}'
             }
             
     except Exception as e:
