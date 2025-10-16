@@ -106,12 +106,6 @@ elif tipo_extracao == "Comissões e Votações":
         "Todos": "TODOS",
         "PL - Projeto de Lei": "PL",
         "PDL - Projeto de Decreto Legislativo": "PDL",
-        "PEC - Proposta de Emenda à Constituição": "PEC",
-        "PRC - Projeto de Resolução": "PRC",
-        "REQ - Requerimento": "REQ",
-        "IND - Indicação": "IND",
-        "MOC - Moção": "MOC",
-        "SUB - Substitutivo": "SUB"
     }
     
     tipo_selecionado = st.sidebar.selectbox(
