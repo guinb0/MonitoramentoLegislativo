@@ -101,20 +101,47 @@ elif tipo_extracao == "Comissões e Votações":
     st.header("🗳️ Extração de Comissões e Votações")
     st.info("Este extrator coleta informações sobre comissões e votações de projetos dos vereadores.")
     
-    tipo_projeto = st.sidebar.text_input(
+    # Lista de tipos de projeto
+    tipos_projeto = {
+        "Todos": "TODOS",
+        "PL - Projeto de Lei": "PL",
+        "PDL - Projeto de Decreto Legislativo": "PDL",
+        "PEC - Proposta de Emenda à Constituição": "PEC",
+        "PRC - Projeto de Resolução": "PRC",
+        "REQ - Requerimento": "REQ",
+        "IND - Indicação": "IND",
+        "MOC - Moção": "MOC",
+        "SUB - Substitutivo": "SUB"
+    }
+    
+    tipo_selecionado = st.sidebar.selectbox(
         "Tipo de Projeto:",
-        value="PL",
-        help="Ex: PL, PDL, PEC, etc."
+        options=list(tipos_projeto.keys()),
+        help="Selecione o tipo de projeto ou 'Todos' para extrair todos os tipos"
     )
     
+    tipo_projeto = tipos_projeto[tipo_selecionado]
+    
+    # Mostrar info sobre a seleção
+    if tipo_projeto == "TODOS":
+        st.warning("⚠️ Você selecionou 'Todos'. Isso pode demorar vários minutos!")
+        st.info(f"📊 Serão extraídos {len(tipos_projeto) - 1} tipos de projetos do ano {ano}")
+    else:
+        st.info(f"📊 Extraindo dados de {tipo_selecionado} do ano {ano}")
+    
     if st.button("🚀 Iniciar Extração", type="primary", use_container_width=True):
-        with st.spinner(f"Extraindo dados de {tipo_projeto} do ano {ano}..."):
+        with st.spinner(f"Extraindo dados..."):
             try:
                 resultado = extrair_comissoes_votacoes(ano, tipo_projeto)
                 
                 if resultado['sucesso']:
                     st.success(f"✅ Extração concluída com sucesso!")
-                    st.success(f"📁 Arquivo gerado: {resultado['arquivo_excel']}")
+                    
+                    if tipo_projeto == "TODOS":
+                        st.success(f"📁 {resultado['total_tipos']} tipos de projetos foram extraídos!")
+                        st.success(f"📁 Arquivo consolidado: {resultado['arquivo_excel']}")
+                    else:
+                        st.success(f"📁 Arquivo gerado: {resultado['arquivo_excel']}")
                     
                     col1, col2 = st.columns(2)
                     with col1:
@@ -128,6 +155,16 @@ elif tipo_extracao == "Comissões e Votações":
                         st.subheader("📋 Preview dos Dados")
                         st.dataframe(df_preview.head(50), use_container_width=True)
                         
+                        # Estatísticas adicionais
+                        if 'Parlamentar' in df_preview.columns:
+                            st.subheader("📊 Estatísticas")
+                            col1, col2 = st.columns(2)
+                            with col1:
+                                st.metric("Total de Parlamentares", df_preview['Parlamentar'].nunique())
+                            with col2:
+                                if 'Comissão' in df_preview.columns:
+                                    st.metric("Total de Comissões", df_preview['Comissão'].nunique())
+                        
                         with open(resultado['arquivo_excel'], 'rb') as f:
                             st.download_button(
                                 label="⬇️ Baixar Planilha Excel",
@@ -140,6 +177,8 @@ elif tipo_extracao == "Comissões e Votações":
                     
             except Exception as e:
                 st.error(f"❌ Erro inesperado: {str(e)}")
+                import traceback
+                st.code(traceback.format_exc())
 
 elif tipo_extracao == "Projetos em Tramitação":
     st.header("📜 Extração de Projetos em Tramitação")
