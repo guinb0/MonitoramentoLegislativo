@@ -124,7 +124,7 @@ elif tipo_extracao == "Comissões e Votações":
     
     # Mostrar info sobre a seleção
     if tipo_projeto == "TODOS":
-        st.warning("⚠️ Você selecionou 'Todos'. Isso pode demorar vários minutos!")
+        st.warning("⚠️ Todos os tipos de projet foram selecionados, a extração pode demorar um pouco mais que o normal")
         st.info(f"📊 Serão extraídos {len(tipos_projeto) - 1} tipos de projetos do ano {ano}")
     else:
         st.info(f"📊 Extraindo dados de {tipo_selecionado} do ano {ano}")
